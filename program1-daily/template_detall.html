@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;700;900&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-display: 'Josefin Sans', sans-serif;
+            --font-body: 'PT Sans', sans-serif;
+        }
+        body {
+            font-family: var(--font-body);
+            margin: 0;
+            padding: 0;
+            background: {{BG_COLOR}};
+            width: 1080px;
+            height: 1080px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #capture-area {
+            width: 1080px;
+            height: 1080px;
+            background-color: {{BG_COLOR}};
+            color: {{TEXT_COLOR}};
+            box-sizing: border-box;
+            position: relative;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 6px solid {{TEXT_COLOR}};
+            padding-bottom: 30px;
+            margin-bottom: 40px;
+            flex-shrink: 0;
+        }
+        .logo {
+            height: 70px;
+            {{LOGO_FILTER}}
+        }
+        .title-box {
+            text-align: right;
+            font-family: var(--font-display);
+        }
+        .main-title {
+            font-size: 40px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .sub-title {
+            font-size: 24px;
+            font-weight: 700;
+            opacity: 0.8;
+            font-family: var(--font-body);
+        }
+        
+        .ships-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px 40px;
+            align-content: start;
+            overflow: hidden;
+            flex-grow: 1;
+        }
+        
+        .ship-card {
+            border-left: 8px solid {{TEXT_COLOR}};
+            padding-left: 20px;
+            background: rgba(255,255,255,0.05);
+            padding: 15px 15px 15px 20px;
+            border-radius: 0 10px 10px 0;
+        }
+        
+        .ship-name {
+            font-family: var(--font-display);
+            font-size: 26px;
+            font-weight: 900;
+            margin-bottom: 5px;
+            line-height: 1.1;
+        }
+        
+        .ship-details {
+            font-size: 18px;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+        
+        .ship-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border: 2px solid {{TEXT_COLOR}};
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 10px;
+            text-transform: uppercase;
+        }
+
+        .no-ships {
+            grid-column: span 2;
+            text-align: center;
+            font-size: 30px;
+            font-style: italic;
+            margin-top: 100px;
+        }
+        
+        .footer-branding {
+            text-align: center;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 24px;
+            margin-top: 30px;
+            opacity: 0.6;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="capture-area">
+        <div class="header">
+            <img class="logo" src="{{LOGO_SRC}}" />
+            <div class="title-box">
+                <div class="main-title">DETALL VAIXELLS</div>
+                <div class="sub-title">Previsió {{DATA_AVUI}}</div>
+            </div>
+        </div>
+        
+        <div class="ships-list">
+            {{LLISTA_VAIXELLS_HTML}}
+        </div>
+
+        <div class="footer-branding">
+            STOPCREUERS.CAT
+        </div>
+    </div>
+</body>
+</html>

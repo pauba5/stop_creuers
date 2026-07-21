@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;700;900&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-display: 'Josefin Sans', sans-serif;
+            --font-body: 'PT Sans', sans-serif;
+        }
+        body {
+            font-family: var(--font-body);
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            display: inline-block;
+        }
+        #capture-area {
+            width: 850px;
+            padding: 40px;
+            background-color: {{BG_COLOR}};
+            color: {{TEXT_COLOR}};
+            border-radius: 20px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 4px solid {{TEXT_COLOR}};
+            padding-bottom: 20px;
+        }
+        .logo {
+            height: 60px;
+            /* Si el text és blanc, el logo original fosc pot no veure's bé, però forçarem que el fons fosc tingui logo blanc si ho tens, o apliquem filtre */
+            {{LOGO_FILTER}}
+        }
+        .date-badge {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+        .alert-level {
+            font-family: var(--font-display);
+            font-size: 42px;
+            font-weight: 900;
+            margin-bottom: 5px;
+            line-height: 1;
+            letter-spacing: -1px;
+            text-transform: uppercase;
+        }
+        .pax-count {
+            font-size: 90px;
+            font-family: var(--font-display);
+            font-weight: 900;
+            margin: 0;
+            line-height: 1;
+            letter-spacing: -3px;
+        }
+        .pax-label {
+            font-size: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 35px;
+            opacity: 0.9;
+        }
+        .ships-container {
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid {{TEXT_COLOR}};
+            border-radius: 12px;
+            padding: 25px;
+        }
+        .ships-title {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 22px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+        }
+        .ships-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px 25px;
+        }
+        .ship-item {
+            font-size: 18px;
+            font-weight: 700;
+            border-left: 5px solid {{TEXT_COLOR}};
+            padding-left: 12px;
+            line-height: 1.2;
+        }
+        .ship-meta {
+            font-size: 14px;
+            font-weight: 400;
+            opacity: 0.85;
+            margin-top: 4px;
+            display: block;
+        }
+        .hashtag {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 24px;
+            opacity: 0.4;
+        }
+        .no-ships {
+            font-size: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div id="capture-area">
+        <div class="header">
+            <img class="logo" src="https://www.stopcreuers.cat/img/logo/dark/logo-horitzontal-trans-02.png" crossorigin="anonymous" />
+            <div class="date-badge">PREVISIÓ {{DATA_AVUI}}</div>
+        </div>
+        
+        <div class="alert-level">ALERTA {{NIVELL_ALERTA}}</div>
+        <div class="pax-count">{{PAX_ESTIMATS}}</div>
+        <div class="pax-label">Creueristes (Estimat)</div>
+
+        <div class="ships-container">
+            <h3 class="ships-title">Vaixells a Port ({{NUM_VAIXELLS}}):</h3>
+            <div class="ships-list">
+                {{LLISTA_VAIXELLS_HTML}}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
