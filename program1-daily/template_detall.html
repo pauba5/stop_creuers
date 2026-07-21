@@ -18,6 +18,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
         #capture-area {
             width: 1080px;
@@ -66,6 +67,36 @@
             align-content: start;
             overflow: hidden;
             flex-grow: 1;
+        }
+        
+        /* Dense mode per quan hi ha més de 12 vaixells */
+        .dense-mode .header {
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .dense-mode .logo {
+            height: 50px;
+        }
+        .dense-mode .main-title {
+            font-size: 30px;
+        }
+        .dense-mode .ships-list {
+            gap: 10px 20px;
+        }
+        .dense-mode .ship-card {
+            padding: 8px 8px 8px 12px;
+            border-left-width: 5px;
+        }
+        .dense-mode .ship-name {
+            font-size: 18px;
+        }
+        .dense-mode .ship-details {
+            font-size: 14px;
+        }
+        .dense-mode .ship-tag {
+            font-size: 11px;
+            padding: 2px 6px;
+            margin-top: 5px;
         }
         
         .ship-card {
@@ -121,7 +152,7 @@
     </style>
 </head>
 <body>
-    <div id="capture-area">
+    <div id="capture-area" class="{{DENSE_CLASS}}">
         <div class="header">
             <img class="logo" src="{{LOGO_SRC}}" />
             <div class="title-box">

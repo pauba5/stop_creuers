@@ -47,6 +47,21 @@ async function getBase64Logo() {
 }
 
 async function run() {
+    console.log("Carregant llista de capacitats de vaixells...");
+    const capacityMap = new Map();
+    try {
+        const dadesCompletesPath = join(__dirname, '..', 'stopcreuers-dashboard', 'dades_completes.csv');
+        const rawCompletes = await fs.readFile(dadesCompletesPath, 'utf8');
+        const parsedCompletes = Papa.parse(rawCompletes, { header: true, skipEmptyLines: true, delimiter: ';' });
+        parsedCompletes.data.forEach(row => {
+            if (row.ship_name && row.capacity) {
+                capacityMap.set(row.ship_name.toUpperCase(), parseInt(row.capacity, 10));
+            }
+        });
+    } catch (e) {
+        console.error("No s'ha pogut carregar dades_completes.csv", e.message);
+    }
+
     console.log("Descarregant previsió a 7 dies...");
     let response;
     try {
@@ -97,6 +112,20 @@ async function run() {
                 tipusOperacio = "Port Base (Fa nit)";
             }
 
+            // Intentem trobar el número exacte al CSV (comprovem possibles noms de columna)
+            let paxExacte = parseInt(row['CREUERISTES'] || row['PAX'] || row['PASSATGERS'] || row['TOTAL_PAX'] || row['CAPACITAT'], 10);
+            let pax;
+
+            if (!isNaN(paxExacte) && paxExacte > 0) {
+                pax = paxExacte; // Utilitzem el valor directe que dóna el Port
+            } else {
+                // Si el CSV no porta aquesta columna, fem servir l'estimació basada en el teu històric
+                pax = capacityMap.get(vaixell.toUpperCase());
+                if (!pax || isNaN(pax)) {
+                    pax = PAX_PER_SHIP; // 3500 per defecte
+                }
+            }
+
             escalesAvui.push({
                 vaixell,
                 moll: row['MOLL'],
@@ -104,13 +133,17 @@ async function run() {
                 sortida,
                 arribadaHora,
                 sortidaHora,
-                tipusOperacio
+                tipusOperacio,
+                pax
             });
         }
     });
 
+    // Ordenar per nombre de passatgers de més gran a més petit
+    escalesAvui.sort((a, b) => b.pax - a.pax);
+
     const numVaixellsAvui = escalesAvui.length;
-    const paxEstimats = numVaixellsAvui * PAX_PER_SHIP;
+    const paxEstimats = escalesAvui.reduce((sum, v) => sum + v.pax, 0);
 
     // Configurar colors i missatges segons semàfor (Estil brutalista Stop Creuers)
     let bgColor = "#10b981"; // Verd esmeralda
@@ -145,7 +178,7 @@ async function run() {
     let missatge = `🛳 *Previsió Diària - Port de Barcelona*\n`;
     missatge += `Data: ${dataAvui}\n\n`;
     missatge += `📊 *Semàfor de Pressió*: ${semaforIcon} ALERTA ${nivellAlerta}\n`;
-    missatge += `👥 *Pax Estimat*: ${paxEstimats.toLocaleString()} passatgers\n\n`;
+    missatge += `👥 *Pax Estimat Total*: ${paxEstimats.toLocaleString()} passatgers\n\n`;
     missatge += `*Vaixells previstos avui:*\n`;
 
     let llistaVaixellsHtml = "";
@@ -154,15 +187,15 @@ async function run() {
         missatge += `No hi ha vaixells programats avui.\n`;
         llistaVaixellsHtml = `<div class="no-ships">Cap creuer programat per avui.</div>`;
     } else {
-        const maxVaixellsVisibles = Math.min(escalesAvui.length, 16); 
-        
-        for (let i = 0; i < maxVaixellsVisibles; i++) {
+        // Mostrem tots els vaixells (el canvas s'adaptarà a l'alçada)
+        for (let i = 0; i < escalesAvui.length; i++) {
             const v = escalesAvui[i];
             const tArribada = v.arribadaHora || v.arribada;
             const tSortida = v.sortidaHora || v.sortida;
             llistaVaixellsHtml += `
                 <div class="ship-card">
                     <div class="ship-name">${v.vaixell}</div>
+                    <div class="ship-details" style="font-weight: 700; opacity: 1;">👥 ${v.pax.toLocaleString()} pax</div>
                     <div class="ship-details">${tArribada} a ${tSortida} | ${v.moll}</div>
                     <div class="ship-tag">${v.tipusOperacio}</div>
                 </div>
@@ -170,11 +203,20 @@ async function run() {
         }
         
         escalesAvui.forEach(v => {
-            missatge += `- *${v.vaixell}* (${v.moll})\n  ${v.arribada} a ${v.sortida} -> _${v.tipusOperacio}_\n`;
+            missatge += `- *${v.vaixell}* (${v.pax.toLocaleString()} pax)\n  ${v.moll} | ${v.arribada} a ${v.sortida} -> _${v.tipusOperacio}_\n`;
         });
     }
 
-    const browser = await puppeteer.launch({ headless: 'new', defaultViewport: { width: 1080, height: 1080 } });
+    const browser = await puppeteer.launch({ 
+        headless: 'new', 
+        defaultViewport: { width: 1080, height: 1080 },
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
+        ]
+    });
     const base64Logo = await getBase64Logo();
 
     // 1. GENERAR IMATGE SEMÀFOR
@@ -195,7 +237,7 @@ async function run() {
     await page1.setContent(templateSemafor, { waitUntil: 'networkidle0' });
     const bufferSemafor = await (await page1.$('#capture-area')).screenshot();
 
-    // 2. GENERAR IMATGE DETALL
+    // 2. GENERAR IMATGE DETALL (Mida fixa 1080x1080 amb dense-mode si cal)
     console.log("Generant imatge Detall Vaixells...");
     const templateDetallPath = join(__dirname, 'template_detall.html');
     let templateDetall = await fs.readFile(templateDetallPath, 'utf8');
@@ -205,6 +247,7 @@ async function run() {
         .replace('{{LOGO_FILTER}}', logoFilter)
         .replace('{{LOGO_SRC}}', base64Logo)
         .replace('{{DATA_AVUI}}', dataAvui)
+        .replace('{{DENSE_CLASS}}', numVaixellsAvui > 12 ? 'dense-mode' : '')
         .replace('{{LLISTA_VAIXELLS_HTML}}', llistaVaixellsHtml);
         
     const page2 = await browser.newPage();
@@ -237,4 +280,16 @@ async function run() {
     }
 }
 
-run();
+// Timeout global per evitar que es pengi a Railway (ex: 2 minuts)
+setTimeout(() => {
+    console.error("⏳ Timeout global: L'script ha trigat massa (més de 2 minuts). Es força el tancament.");
+    process.exit(1);
+}, 120000);
+
+run().then(() => {
+    console.log("Fi de l'execució de l'script.");
+    process.exit(0);
+}).catch(err => {
+    console.error("❌ Error no controlat a l'script:", err);
+    process.exit(1);
+});
