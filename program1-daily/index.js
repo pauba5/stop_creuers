@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import puppeteer from 'puppeteer';
 import fs from 'fs/promises';
+import { extractPaxFromPDF } from './extract_pdf.js';
 
 // Carregar variables d'entorn
 const __filename = fileURLToPath(import.meta.url);
@@ -14,7 +15,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const CSV_URL = "https://opendata.portdebarcelona.cat/dataset/0a5f703d-35e5-4262-84ac-b6930239f4aa/resource/9c803939-6ea4-4095-aa82-11127538154a/download/portbcncreuers.csv";
+const CSV_URL = "https://opendata.portdebarcelona.cat/dataset/342fe09b-017b-4019-a743-ee773f09befd/resource/72f0fc9e-b4b4-4a61-a0fb-e7b65b601b4d/download/arribadesavui.csv";
 
 const PAX_PER_SHIP = 3500;
 
@@ -34,6 +35,24 @@ function isFerry(shipName) {
     return ferryKeywords.some(keyword => name.includes(keyword));
 }
 
+// Funció que ara utilitza l'extracció directa de PDF
+async function computeCapacitatTotal(shipName) {
+    try {
+        console.log(`[PASSATGERS] Buscant passatgers reals del vaixell: ${shipName}`);
+        const exactPax = await extractPaxFromPDF(shipName);
+        if (exactPax !== null) {
+            console.log(`[PASSATGERS] Èxit! Nombre exacte obtingut del PDF pel ${shipName}: ${exactPax}`);
+            return exactPax;
+        }
+    } catch (e) {
+        console.warn(`[PASSATGERS] Error extreient PDF per ${shipName}: ${e.message}`);
+    }
+    
+    // Si no es troba al PDF (ex: error de lectura o PDF no disponible) posem 3500 per defecte
+    console.log(`[PASSATGERS] L'extracció del PDF ha fallat pel ${shipName}. Posem capacitat per defecte: 3500`);
+    return 3500;
+}
+
 // Llegir la imatge local com a base64
 async function getBase64Logo() {
     try {
@@ -47,21 +66,6 @@ async function getBase64Logo() {
 }
 
 async function run() {
-    console.log("Carregant llista de capacitats de vaixells...");
-    const capacityMap = new Map();
-    try {
-        const dadesCompletesPath = join(__dirname, '..', 'stopcreuers-dashboard', 'dades_completes.csv');
-        const rawCompletes = await fs.readFile(dadesCompletesPath, 'utf8');
-        const parsedCompletes = Papa.parse(rawCompletes, { header: true, skipEmptyLines: true, delimiter: ';' });
-        parsedCompletes.data.forEach(row => {
-            if (row.ship_name && row.capacity) {
-                capacityMap.set(row.ship_name.toUpperCase(), parseInt(row.capacity, 10));
-            }
-        });
-    } catch (e) {
-        console.error("No s'ha pogut carregar dades_completes.csv", e.message);
-    }
-
     console.log("Descarregant previsió a 7 dies...");
     let response;
     try {
@@ -74,70 +78,66 @@ async function run() {
         }
         return;
     }
-    const parsed = Papa.parse(response.data, { header: true, skipEmptyLines: true });
+    const parsed = Papa.parse(response.data, { header: true, skipEmptyLines: true, delimiter: ',' });
     
     const dades = parsed.data;
     
     const today = new Date();
     const day = String(today.getDate()).padStart(2, '0');
     const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
     const dataAvui = `${day}-${month}`;
+    const avuiStr = `${year}-${month}-${day}`;
     
-    console.log(`Buscant escales per a avui: ${dataAvui}`);
+    console.log(`Buscant escales per a avui: ${avuiStr}`);
 
     const escalesAvui = [];
 
-    dades.forEach(row => {
-        const vaixell = row['NOMVAIXELL'] || '';
+    for (const row of dades) {
+        const vaixell = row['VAIXELLNOM'] || row['NOMVAIXELL'] || row['VAIXELL'] || 'Desconegut';
+        
+        // El nou CSV d'arribades té el tipus de vaixell a VAIXELLTIPUS
+        const tipus = row['VAIXELLTIPUS'] || '';
+        
+        // Excloure si no és passatge
+        if (tipus !== 'Passatge') continue;
         
         // Excloure ferris
         if (isFerry(vaixell)) {
-            return;
+            continue;
         }
 
-        const arribada = row['ARRIBADA'] || '';
-        const sortida = row['SORTIDA'] || '';
-        
-        const [arribadaData, arribadaHora] = arribada.split(' ');
-        const [sortidaData, sortidaHora] = sortida.split(' ');
+        const arribadaStr = row['ETADIA'] || row['ARRIBADA'] || '';
+        const sortidaStr = row['ETDDIA'] || row['SORTIDA'] || '';
+        const arribadaHora = row['ETAHORA'] || '';
+        const sortidaHora = row['ETDHORA'] || '';
 
-        if (arribadaData === dataAvui || sortidaData === dataAvui) {
+        // Comprovem si el vaixell arriba o surt avui
+        if (arribadaStr === avuiStr || sortidaStr === avuiStr || arribadaStr.includes(dataAvui)) {
             let tipusOperacio = "Trànsit";
-            if (arribadaHora && sortidaHora && arribadaData === sortidaData) {
+            if (arribadaHora && sortidaHora && arribadaStr === sortidaStr) {
                 const [hA, mA] = arribadaHora.split(':').map(Number);
                 const [hS, mS] = sortidaHora.split(':').map(Number);
                 const horesEstada = (hS + mS/60) - (hA + mA/60);
                 if (horesEstada > 10) tipusOperacio = "Port Base";
-            } else if (arribadaData !== sortidaData) {
+            } else if (arribadaStr !== sortidaStr) {
                 tipusOperacio = "Port Base (Fa nit)";
             }
 
-            // Intentem trobar el número exacte al CSV (comprovem possibles noms de columna)
-            let paxExacte = parseInt(row['CREUERISTES'] || row['PAX'] || row['PASSATGERS'] || row['TOTAL_PAX'] || row['CAPACITAT'], 10);
-            let pax;
-
-            if (!isNaN(paxExacte) && paxExacte > 0) {
-                pax = paxExacte; // Utilitzem el valor directe que dóna el Port
-            } else {
-                // Si el CSV no porta aquesta columna, fem servir l'estimació basada en el teu històric
-                pax = capacityMap.get(vaixell.toUpperCase());
-                if (!pax || isNaN(pax)) {
-                    pax = PAX_PER_SHIP; // 3500 per defecte
-                }
-            }
+            const pax = await computeCapacitatTotal(vaixell);
 
             escalesAvui.push({
                 vaixell,
-                moll: row['MOLL'],
-                arribada,
-                sortida,
+                moll: row['TERMINALNOM'] || row['MOLL'] || 'Desconegut',
+                arribada: arribadaStr,
+                sortida: sortidaStr,
                 arribadaHora,
                 sortidaHora,
                 tipusOperacio,
                 pax
             });
         }
-    });
+    }
 
     // Ordenar per nombre de passatgers de més gran a més petit
     escalesAvui.sort((a, b) => b.pax - a.pax);
@@ -152,21 +152,28 @@ async function run() {
     let semaforIcon = "🟢";
     let logoFilter = "filter: brightness(0) invert(1);";
 
-    if (paxEstimats > 5000) {
+    if (paxEstimats > 0) {
         bgColor = "#fbbf24"; // Groc
         textColor = "#000000";
         nivellAlerta = "GROGA";
         semaforIcon = "🟡";
         logoFilter = "filter: none;";
     }
-    if (paxEstimats > 10000) {
+    if (paxEstimats > 8000) {
+        bgColor = "#f97316"; // Taronja
+        textColor = "#ffffff";
+        nivellAlerta = "TARONJA";
+        semaforIcon = "🟠";
+        logoFilter = "filter: brightness(0) invert(1);";
+    }
+    if (paxEstimats > 15000) {
         bgColor = "#ef4444"; // Vermell
         textColor = "#ffffff";
         nivellAlerta = "VERMELLA";
         semaforIcon = "🔴";
         logoFilter = "filter: brightness(0) invert(1);";
     }
-    if (paxEstimats > 15000) {
+    if (paxEstimats > 50000) {
         bgColor = "#000000"; // Negre pur
         textColor = "#ffffff";
         nivellAlerta = "NEGRA";
@@ -234,7 +241,7 @@ async function run() {
         .replace('{{NUM_VAIXELLS}}', numVaixellsAvui);
     
     const page1 = await browser.newPage();
-    await page1.setContent(templateSemafor, { waitUntil: 'networkidle0' });
+    await page1.setContent(templateSemafor, { waitUntil: 'load' });
     const bufferSemafor = await (await page1.$('#capture-area')).screenshot();
 
     // 2. GENERAR IMATGE DETALL (Mida fixa 1080x1080 amb dense-mode si cal)
@@ -251,7 +258,7 @@ async function run() {
         .replace('{{LLISTA_VAIXELLS_HTML}}', llistaVaixellsHtml);
         
     const page2 = await browser.newPage();
-    await page2.setContent(templateDetall, { waitUntil: 'networkidle0' });
+    await page2.setContent(templateDetall, { waitUntil: 'load' });
     const bufferDetall = await (await page2.$('#capture-area')).screenshot();
 
     await browser.close();

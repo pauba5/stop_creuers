@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["...", "ghostscript", "tesseract"]
+
+[phases.build]
+cmds = ["npm ci"]
+
+[start]
+cmd = "npm start"
