@@ -224,6 +224,8 @@ async function run() {
         });
     }
 
+    missatge += `\n*FONT:* Port de Barcelona\n[PDF de previsió](https://opendata.portdebarcelona.cat/dataset/0a5f703d-35e5-4262-84ac-b6930239f4aa/resource/695fb2cc-6a71-43a1-a040-4d907b6a2472/download/portbcncreuersferris7dies.pdf)\n`;
+
     const browser = await puppeteer.launch({ 
         headless: 'new', 
         defaultViewport: { width: 1080, height: 1080 },
