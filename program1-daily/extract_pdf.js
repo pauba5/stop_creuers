@@ -29,17 +29,22 @@ export async function extractPaxFromPDF(shipName) {
             console.log(`[OCR] Convertint pàgines del PDF a imatge (GS)...`);
             const pngPattern = join(__dirname, 'temp_page_%d.png');
             // Convert all 7 pages as 'today' is typically at the end
-            execSync(`gs -dNOPAUSE -dBATCH -sDEVICE=png16m -r300 -dFirstPage=1 -dLastPage=7 -sOutputFile="${pngPattern}" "${pdfPath}"`);
+            // Convertim a escala de grisos per consumir 10x menys memòria RAM a Railway (evitar petades OOM)
+            execSync(`gs -dNOPAUSE -dBATCH -sDEVICE=pnggray -r300 -dFirstPage=1 -dLastPage=7 -sOutputFile="${pngPattern}" "${pdfPath}"`);
             
             const files = await fs.readdir(__dirname);
             const pngFiles = files.filter(f => f.startsWith('temp_page_') && f.endsWith('.png'));
             
             for (const file of pngFiles) {
                 const filePath = join(__dirname, file);
-                console.log(`[OCR] Llegint text de ${file} amb Tesseract...`);
-                const out = execSync(`tesseract "${filePath}" stdout --psm 6 2>/dev/null`);
-                fullText += out.toString() + '\n';
-                await fs.unlink(filePath); // Cleanup
+                try {
+                    console.log(`[OCR] Llegint text de ${file} amb Tesseract...`);
+                    const out = execSync(`tesseract "${filePath}" stdout --psm 6 2>/dev/null`);
+                    fullText += out.toString() + '\n';
+                } catch (err) {
+                    console.warn(`[OCR] Avís: Tesseract ha fallat al llegir ${file} (pot ser per RAM). Continuem...`);
+                }
+                await fs.unlink(filePath).catch(() => {}); // Cleanup segur
             }
             
             // Remove PDF
