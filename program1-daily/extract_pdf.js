@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import fs from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import axios from 'axios';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,7 +25,8 @@ export async function extractPaxFromPDF(shipName) {
         
         try {
             console.log(`[OCR] Descarregant PDF des de ${pdfUrl}...`);
-            execSync(`curl -s -o "${pdfPath}" "${pdfUrl}"`);
+            const response = await axios.get(pdfUrl, { responseType: 'arraybuffer', timeout: 30000 });
+            await fs.writeFile(pdfPath, response.data);
             
             console.log(`[OCR] Convertint pàgines del PDF a imatge (GS)...`);
             const pngPattern = join(__dirname, 'temp_page_%d.png');
@@ -39,10 +41,10 @@ export async function extractPaxFromPDF(shipName) {
                 const filePath = join(__dirname, file);
                 try {
                     console.log(`[OCR] Llegint text de ${file} amb Tesseract...`);
-                    const out = execSync(`tesseract "${filePath}" stdout --psm 6 2>/dev/null`);
+                    const out = execSync(`tesseract "${filePath}" stdout --psm 6`);
                     fullText += out.toString() + '\n';
                 } catch (err) {
-                    console.warn(`[OCR] Avís: Tesseract ha fallat al llegir ${file} (pot ser per RAM). Continuem...`);
+                    console.warn(`[OCR] Avís: Tesseract ha fallat al llegir ${file}: ${err.message}. Continuem...`);
                 }
                 await fs.unlink(filePath).catch(() => {}); // Cleanup segur
             }
