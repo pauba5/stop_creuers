@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["...", "ghostscript", "tesseract"]
+aptPkgs = ["...", "ghostscript", "tesseract-ocr", "tesseract-ocr-eng", "tesseract-ocr-spa"]
 
 [phases.build]
 cmds = ["npm ci"]
