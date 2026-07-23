@@ -15,7 +15,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const CSV_URL = "https://opendata.portdebarcelona.cat/dataset/342fe09b-017b-4019-a743-ee773f09befd/resource/72f0fc9e-b4b4-4a61-a0fb-e7b65b601b4d/download/arribadesavui.csv";
+const CSV_URL = "https://opendata.portdebarcelona.cat/dataset/0a5f703d-35e5-4262-84ac-b6930239f4aa/resource/9c803939-6ea4-4095-aa82-11127538154a/download/portbcncreuers.csv";
 
 const PAX_PER_SHIP = 3500;
 
@@ -99,8 +99,8 @@ async function run() {
         // El nou CSV d'arribades té el tipus de vaixell a VAIXELLTIPUS
         const tipus = row['VAIXELLTIPUS'] || '';
         
-        // Excloure si no és passatge
-        if (tipus !== 'Passatge') continue;
+        // Excloure si té tipus i no és passatge
+        if (tipus && tipus !== 'Passatge') continue;
         
         // Excloure ferris
         if (isFerry(vaixell)) {
