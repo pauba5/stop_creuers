@@ -37,7 +37,7 @@ export async function extractPaxFromPDF(shipName) {
             for (const file of pngFiles) {
                 const filePath = join(__dirname, file);
                 console.log(`[OCR] Llegint text de ${file} amb Tesseract...`);
-                const out = execSync(`tesseract "${filePath}" stdout -l eng+spa --psm 6 2>/dev/null`);
+                const out = execSync(`tesseract "${filePath}" stdout --psm 6 2>/dev/null`);
                 fullText += out.toString() + '\n';
                 await fs.unlink(filePath); // Cleanup
             }

@@ -26,7 +26,8 @@ const ferryKeywords = [
     'MARGARITA SALAS', 'CIUDAD DE', 'HYPATIA', 'ROSALIND FRANKLIN', 'KERRY', 
     'VOLCAN DE', 'MARTIN I SOLER', 'MARTÍN I SOLER', 'FLORENCIA', 'EXCELLENT', 
     'EXCELSIOR', 'LA SUPREMA', 'ECO ', 'ELEANOR', 'SICILIA', 'NAPOLI', 
-    'CAP DE BARBARIA', 'RAMON LLULL', 'JAUME', 'MARIE CURIE', 'VISUVIUS'
+    'CAP DE BARBARIA', 'RAMON LLULL', 'JAUME', 'MARIE CURIE', 'VISUVIUS',
+    'GUBAL', 'DENIA', 'JINANAH'
 ];
 
 function isFerry(shipName) {
@@ -287,11 +288,11 @@ async function run() {
     }
 }
 
-// Timeout global per evitar que es pengi a Railway (ex: 2 minuts)
+// Timeout global per evitar que es pengi a Railway (ex: 5 minuts)
 setTimeout(() => {
-    console.error("⏳ Timeout global: L'script ha trigat massa (més de 2 minuts). Es força el tancament.");
+    console.error("⏳ Timeout global: L'script ha trigat massa (més de 5 minuts). Es força el tancament.");
     process.exit(1);
-}, 120000);
+}, 300000);
 
 run().then(() => {
     console.log("Fi de l'execució de l'script.");
