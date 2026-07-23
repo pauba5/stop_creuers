@@ -49,9 +49,8 @@ async function computeCapacitatTotal(shipName) {
         console.warn(`[PASSATGERS] Error extreient PDF per ${shipName}: ${e.message}`);
     }
     
-    // Si no es troba al PDF (ex: error de lectura o PDF no disponible) posem 3500 per defecte
-    console.log(`[PASSATGERS] L'extracció del PDF ha fallat pel ${shipName}. Posem capacitat per defecte: 3500`);
-    return 3500;
+    // Si no es troba al PDF (ex: error de lectura o PDF no disponible) llencem error en comptes de posar 3500
+    throw new Error(`No s'ha pogut extreure els passatgers exactes per al vaixell: ${shipName}`);
 }
 
 // Llegir la imatge local com a base64
@@ -125,7 +124,17 @@ async function run() {
                 tipusOperacio = "Port Base (Fa nit)";
             }
 
-            const pax = await computeCapacitatTotal(vaixell);
+            let pax;
+            try {
+                pax = await computeCapacitatTotal(vaixell);
+            } catch (err) {
+                console.error(err.message);
+                if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+                    const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+                    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, `⚠️ *Error de Precisió de Dades*: ${err.message}. S'ha aturat l'alerta per no publicar dades falses/estimades.`, { parse_mode: 'Markdown' });
+                }
+                return; // Aturar el procés per complet
+            }
 
             escalesAvui.push({
                 vaixell,
