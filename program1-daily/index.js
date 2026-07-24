@@ -68,16 +68,30 @@ async function getBase64Logo() {
 async function run() {
     console.log("Descarregant previsió a 7 dies...");
     let response;
-    try {
-        response = await axios.get(CSV_URL, { timeout: 15000 });
-    } catch (error) {
-        console.error("❌ Error connectant amb l'API del Port de Barcelona:", error.message);
-        if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-            const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
-            await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, "⚠️ *Error*: No s'ha pogut descarregar la previsió de l'Open Data del Port de Barcelona. El servidor no respon.", { parse_mode: 'Markdown' });
+    let retries = 3;
+    let success = false;
+
+    while (retries > 0 && !success) {
+        try {
+            // Augmentem el timeout a 30s per ser més permissius
+            response = await axios.get(CSV_URL, { timeout: 30000 });
+            success = true;
+        } catch (error) {
+            retries--;
+            console.error(`❌ Error connectant amb l'API del Port de Barcelona: ${error.message}. Intents restants: ${retries}`);
+            if (retries > 0) {
+                console.log("⏳ Reintentant en 10 segons...");
+                await new Promise(res => setTimeout(res, 10000));
+            } else {
+                if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+                    const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+                    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, "⚠️ *Error*: No s'ha pogut descarregar la previsió de l'Open Data del Port de Barcelona després de diversos intents. El servidor no respon.", { parse_mode: 'Markdown' });
+                }
+                return;
+            }
         }
-        return;
     }
+    
     const parsed = Papa.parse(response.data, { header: true, skipEmptyLines: true, delimiter: ',' });
     
     const dades = parsed.data;
