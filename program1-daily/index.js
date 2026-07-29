@@ -121,18 +121,59 @@ async function run() {
             continue;
         }
 
-        const arribadaStr = row['ETADIA'] || row['ARRIBADA'] || '';
-        const sortidaStr = row['ETDDIA'] || row['SORTIDA'] || '';
-        const arribadaHora = row['ETAHORA'] || '';
-        const sortidaHora = row['ETDHORA'] || '';
+        let arribadaStr = row['ETADIA'] || row['ARRIBADA'] || '';
+        let sortidaStr = row['ETDDIA'] || row['SORTIDA'] || '';
+        let arribadaHora = row['ETAHORA'] || '';
+        let sortidaHora = row['ETDHORA'] || '';
 
-        // Comprovem si el vaixell arriba o surt avui
-        if (arribadaStr === avuiStr || sortidaStr === avuiStr || arribadaStr.includes(dataAvui)) {
+        // Separar data i hora si estan juntes (nou format CSV)
+        if (arribadaStr.includes(' ')) {
+            const parts = arribadaStr.split(' ');
+            arribadaStr = parts[0];
+            if (!arribadaHora) arribadaHora = parts[1];
+        }
+        if (sortidaStr.includes(' ')) {
+            const parts = sortidaStr.split(' ');
+            sortidaStr = parts[0];
+            if (!sortidaHora) sortidaHora = parts[1];
+        }
+
+        // Funció per convertir DD-MM a Date
+        const parseDDMM = (str) => {
+            if (!str) return null;
+            const parts = str.split('-');
+            if (parts.length === 2) {
+                return new Date(year, parseInt(parts[1]) - 1, parseInt(parts[0]));
+            }
+            if (str.includes('-')) {
+                // pot ser YYYY-MM-DD
+                const p = str.split('-');
+                if (p[0].length === 4) return new Date(p[0], parseInt(p[1]) - 1, parseInt(p[2]));
+            }
+            return null;
+        };
+
+        const arrDateObj = parseDDMM(arribadaStr);
+        const depDateObj = parseDDMM(sortidaStr);
+        const todayObj = new Date(year, today.getMonth(), today.getDate());
+
+        let isAtPortToday = false;
+        if (arrDateObj && depDateObj) {
+            isAtPortToday = (todayObj >= arrDateObj && todayObj <= depDateObj);
+        } else if (arrDateObj) {
+            isAtPortToday = (todayObj.getTime() === arrDateObj.getTime());
+        } else {
+            // fallback
+            isAtPortToday = (arribadaStr === avuiStr || sortidaStr === avuiStr || arribadaStr.includes(dataAvui));
+        }
+
+        // Comprovem si el vaixell està a port avui
+        if (isAtPortToday) {
             let tipusOperacio = "Trànsit";
             if (arribadaHora && sortidaHora && arribadaStr === sortidaStr) {
                 const [hA, mA] = arribadaHora.split(':').map(Number);
                 const [hS, mS] = sortidaHora.split(':').map(Number);
-                const horesEstada = (hS + mS/60) - (hA + mA/60);
+                const horesEstada = (hS + (mS||0)/60) - (hA + (mA||0)/60);
                 if (horesEstada > 10) tipusOperacio = "Port Base";
             } else if (arribadaStr !== sortidaStr) {
                 tipusOperacio = "Port Base (Fa nit)";
@@ -168,6 +209,19 @@ async function run() {
 
     const numVaixellsAvui = escalesAvui.length;
     const paxEstimats = escalesAvui.reduce((sum, v) => sum + v.pax, 0);
+
+    if (numVaixellsAvui === 0 || paxEstimats === 0) {
+        if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+            try {
+                const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+                await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, "⚠️ *Error Detectat*: La previsió ha donat 0 vaixells o 0 passatgers (possible error de format a les dades del Port). S'ha aturat la previsió automàtica per precaució.", { parse_mode: 'Markdown' });
+            } catch (err) {
+                console.error("Error enviant l'avís a Telegram:", err.message);
+            }
+        }
+        console.warn("⚠️ Previsió aturada: 0 vaixells o 0 passatgers detectats.");
+        return;
+    }
 
     // Configurar colors i missatges segons semàfor (Estil brutalista Stop Creuers)
     let bgColor = "#10b981"; // Verd esmeralda
