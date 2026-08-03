@@ -27,7 +27,7 @@ const ferryKeywords = [
     'VOLCAN DE', 'MARTIN I SOLER', 'MARTÍN I SOLER', 'FLORENCIA', 'EXCELLENT', 
     'EXCELSIOR', 'LA SUPREMA', 'ECO ', 'ELEANOR', 'SICILIA', 'NAPOLI', 
     'CAP DE BARBARIA', 'RAMON LLULL', 'JAUME', 'MARIE CURIE', 'VISUVIUS',
-    'GUBAL', 'DENIA', 'JINANAH'
+    'GUBAL', 'DENIA', 'JINANAH', 'ULUSOY'
 ];
 
 function isFerry(shipName) {
