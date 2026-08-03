@@ -68,7 +68,7 @@ async function getBase64Logo() {
 async function run() {
     console.log("Descarregant previsió a 7 dies...");
     let response;
-    let retries = 3;
+    let retries = 6;
     let success = false;
 
     while (retries > 0 && !success) {
@@ -80,12 +80,12 @@ async function run() {
             retries--;
             console.error(`❌ Error connectant amb l'API del Port de Barcelona: ${error.message}. Intents restants: ${retries}`);
             if (retries > 0) {
-                console.log("⏳ Reintentant en 30 segons...");
-                await new Promise(res => setTimeout(res, 30000));
+                console.log("⏳ Reintentant en 5 minuts...");
+                await new Promise(res => setTimeout(res, 300000));
             } else {
                 if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
                     const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
-                    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, "⚠️ *Error*: No s'ha pogut descarregar la previsió de l'Open Data del Port de Barcelona després de diversos intents. El servidor no respon.", { parse_mode: 'Markdown' });
+                    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, "⚠️ *Error del Servidor del Port*: No s'ha pogut descarregar la previsió de l'Open Data del Port de Barcelona. Després de 6 intents separats per 5 minuts (30 minuts de marge), el servidor segueix sense respondre o donant timeout.", { parse_mode: 'Markdown' });
                 }
                 return;
             }
@@ -360,16 +360,24 @@ async function run() {
     }
 }
 
-// Timeout global per evitar que es pengi a Railway (ex: 5 minuts)
+// Timeout global per evitar que es pengi a Railway (ex: 40 minuts)
 setTimeout(() => {
-    console.error("⏳ Timeout global: L'script ha trigat massa (més de 5 minuts). Es força el tancament.");
+    console.error("⏳ Timeout global: L'script ha trigat massa (més de 40 minuts). Es força el tancament.");
     process.exit(1);
-}, 300000);
+}, 2400000);
 
 run().then(() => {
     console.log("Fi de l'execució de l'script.");
     process.exit(0);
-}).catch(err => {
+}).catch(async err => {
     console.error("❌ Error no controlat a l'script:", err);
+    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+        try {
+            const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
+            await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, `⚠️ *Error Intern de Processament*: Ha fallat la generació de l'alerta.\n\nMotiu: ${err.message}`, { parse_mode: 'Markdown' });
+        } catch (tErr) {
+            console.error("No s'ha pogut enviar error intern a Telegram", tErr);
+        }
+    }
     process.exit(1);
 });
