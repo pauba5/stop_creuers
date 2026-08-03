@@ -49,8 +49,8 @@ async function computeCapacitatTotal(shipName) {
         console.warn(`[PASSATGERS] Error extreient PDF per ${shipName}: ${e.message}`);
     }
     
-    // Si no es troba al PDF (ex: error de lectura o PDF no disponible) llencem error en comptes de posar 3500
-    throw new Error(`No s'ha pogut extreure els passatgers exactes per al vaixell: ${shipName}`);
+    console.warn(`⚠️ No s'ha pogut extreure els passatgers exactes per al vaixell: ${shipName}. S'ignorarà aquest vaixell.`);
+    return null;
 }
 
 // Llegir la imatge local com a base64
@@ -73,15 +73,15 @@ async function run() {
 
     while (retries > 0 && !success) {
         try {
-            // Augmentem el timeout a 30s per ser més permissius
-            response = await axios.get(CSV_URL, { timeout: 30000 });
+            // Augmentem el timeout a 60s per ser més permissius
+            response = await axios.get(CSV_URL, { timeout: 60000 });
             success = true;
         } catch (error) {
             retries--;
             console.error(`❌ Error connectant amb l'API del Port de Barcelona: ${error.message}. Intents restants: ${retries}`);
             if (retries > 0) {
-                console.log("⏳ Reintentant en 10 segons...");
-                await new Promise(res => setTimeout(res, 10000));
+                console.log("⏳ Reintentant en 30 segons...");
+                await new Promise(res => setTimeout(res, 30000));
             } else {
                 if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
                     const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
@@ -179,16 +179,9 @@ async function run() {
                 tipusOperacio = "Port Base (Fa nit)";
             }
 
-            let pax;
-            try {
-                pax = await computeCapacitatTotal(vaixell);
-            } catch (err) {
-                console.error(err.message);
-                if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-                    const bot = new Telegraf(TELEGRAM_BOT_TOKEN);
-                    await bot.telegram.sendMessage(TELEGRAM_CHAT_ID, `⚠️ *Error de Precisió de Dades*: ${err.message}. S'ha aturat l'alerta per no publicar dades falses/estimades.`, { parse_mode: 'Markdown' });
-                }
-                return; // Aturar el procés per complet
+            let pax = await computeCapacitatTotal(vaixell);
+            if (pax === null) {
+                continue; // Saltem aquest vaixell perquè assumim que no és un creuer
             }
 
             escalesAvui.push({

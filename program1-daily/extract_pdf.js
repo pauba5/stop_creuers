@@ -68,7 +68,11 @@ export async function extractPaxFromPDF(shipName) {
             const normalizedLine = line.toUpperCase().replace(/\s+/g, ' ');
             const normalizedShip = shipName.toUpperCase().replace(/\s+/g, ' ');
             
-            if (normalizedLine.includes(normalizedShip)) {
+            const escapedShip = normalizedShip.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Afegim delimitadors per evitar falsos positius (ex: EXPLORA I dins EXPLORA III)
+            const shipRegex = new RegExp(`\\b${escapedShip}(?![A-Z])`, 'i');
+            
+            if (shipRegex.test(normalizedLine)) {
                 console.log(`[OCR] Trobada la línia pel vaixell ${shipName}: ${line}`);
                 const paxMatches = [...line.matchAll(/([a-zA-Z0-9.,]+)Pax/gi)];
                 if (paxMatches.length >= 1) {
